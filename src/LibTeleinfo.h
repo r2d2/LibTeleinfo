@@ -68,13 +68,10 @@
 #endif
 
 #ifdef ESP8266
-  // For 4 bytes Aligment boundaries
-  #define ESP8266_allocAlign(size)  ((size + 3) & ~((size_t) 3))
+    #define aligned_malloc(s) malloc(((s + 3) & ~((size_t) 3)))
+#else
+	#define aligned_malloc(s) malloc(s)
 #endif
-
-
-#pragma pack(push)  // push current alignment to stack
-#pragma pack(1)     // set alignment to 1 byte boundary
 
 // Linked list structure containing all values received
 typedef struct _ValueList ValueList;
@@ -87,14 +84,62 @@ struct _ValueList
   char  * value;   // value 
 };
 
-#pragma pack(pop)
+enum _TokenType_e {
+  TYPE_NUMBER,     	// Number
+  TYPE_STRING 		// String
+};
+
+typedef struct _TokenList TokenList;
+struct _TokenList 
+{
+  char  * token;     // token
+  _TokenType_e type; // type 
+};
+
+TokenList knownTokens[] = {
+	{"ADCO" , TYPE_NUMBER},
+	{"OPTARIF" , TYPE_STRING},
+	{"ISOUSC" , TYPE_NUMBER},
+	{"BASE" , TYPE_NUMBER},
+	{"HCHC" , TYPE_NUMBER},
+	{"HCHP" , TYPE_NUMBER},
+	{"EJPHN" , TYPE_NUMBER},
+	{"EJPHPM" , TYPE_NUMBER},
+	{"BBRHCJB" , TYPE_NUMBER},
+	{"BBRHPJB" , TYPE_NUMBER},
+	{"BBRHCJW" , TYPE_NUMBER},
+	{"BBRHPJW" , TYPE_NUMBER},
+	{"BBRHCJR" , TYPE_NUMBER},
+	{"BBRHPJR" , TYPE_NUMBER},
+	{"PEJP" , TYPE_NUMBER},
+	{"PTEC" , TYPE_STRING},
+	{"DEMAIN" , TYPE_STRING},
+	{"IINST" , TYPE_NUMBER},
+	{"IINST1" , TYPE_NUMBER},
+	{"IINST2" , TYPE_NUMBER},
+	{"IINST3" , TYPE_NUMBER},
+	{"ADIR1" , TYPE_NUMBER},
+	{"ADIR2" , TYPE_NUMBER},
+	{"ADIR3" , TYPE_NUMBER},
+	{"ADPS" , TYPE_NUMBER},
+	{"IMAX" , TYPE_NUMBER},
+	{"IMAX1" , TYPE_NUMBER},
+	{"IMAX2" , TYPE_NUMBER},
+	{"IMAX3" , TYPE_NUMBER},
+	{"PAPP" , TYPE_NUMBER},
+	{"PMAX" , TYPE_NUMBER},
+	{"HHPHC" , TYPE_STRING},
+	{"MOTDETAT" , TYPE_STRING},
+	{"PPOT" , TYPE_STRING},
+	{NULL,0}
+	} ;
 
 // Library state machine
 enum _State_e {
-  TINFO_INIT,     // We're in init
+//  TINFO_INIT,     // We're in init
   TINFO_WAIT_STX, // We're waiting for STX
   TINFO_WAIT_ETX, // We had STX, We're waiting for ETX
-  TINFO_READY     // We had STX AND ETX, So we're OK
+//  TINFO_READY     // We had STX AND ETX, So we're OK
 };
 
 // what we done with received value (also for callback flags)
@@ -106,7 +151,7 @@ enum _State_e {
 #define TINFO_FLAGS_ALERT    0x80 /* This will generate an alert */
 
 // Local buffer for one line of teleinfo 
-// maximum size, I think it should be enought
+// maximum size, I think it should be enough
 #define TINFO_BUFSIZE  64
 
 // Teleinfo start and end of frame characters
@@ -139,6 +184,7 @@ class TInfo
     boolean       valueRemoveFlagged(uint8_t flags);
     int           labelCount();
     void          customLabel( char * plabel, char * pvalue, uint8_t * pflags) ;
+	bool 		  checktoken(char *etiquette, char *valeur);
     ValueList *   checkLine(char * pline) ;
 
     _State_e  _state; // Teleinfo machine state

@@ -190,7 +190,7 @@ ValueList * TInfo::valueAdd(char * name, char * value, uint8_t checksum, uint8_t
     TI_Debug('=');
     TI_Debug(value);
     TI_Debug(F(" '"));
-    TI_Debug((char) cheksum);
+    TI_Debug((char) checksum);
     TI_Debug(F("' Not added bad checksum calculated '"));
     TI_Debug((char) thischeck);
     TI_Debugln(F("'"));
@@ -212,7 +212,8 @@ ValueList * TInfo::valueAdd(char * name, char * value, uint8_t checksum, uint8_t
         // Check if we already have this LABEL
         if (strncmp(me->name, name, lgname) == 0) {
           // Already got also this value, return US
-          if (strncmp(me->value, value, lgvalue) == 0) {
+		  if(checksum == me->checksum) {
+          //if (strncmp(me->value, value, lgvalue) == 0) {
             *flags |= TINFO_FLAGS_EXIST;
             me->flags = *flags;
             return ( me );
@@ -220,10 +221,11 @@ ValueList * TInfo::valueAdd(char * name, char * value, uint8_t checksum, uint8_t
             // We changed the value
             *flags |= TINFO_FLAGS_UPDATED;
             me->flags = *flags ;
-            // Do we have enought space to hold new value ?
+            // Do we have enough space to hold new value ?
             if (strlen(me->value) >= lgvalue ) {
               // Copy it
               strncpy(me->value, value , lgvalue );
+			  me->value[lgvalue]='\0';
               me->checksum = checksum ;
 
               // That's all
@@ -234,7 +236,9 @@ ValueList * TInfo::valueAdd(char * name, char * value, uint8_t checksum, uint8_t
               parNode->next = me->next;
 
               // free up this node
-              free (me);
+			  free(me->name);
+			  free(me->value);
+              free(me);
 
               // Return to parent (that will now point on next node and not us)
               // and continue loop just in case we have sevral with same name
@@ -244,25 +248,18 @@ ValueList * TInfo::valueAdd(char * name, char * value, uint8_t checksum, uint8_t
         }
       }
 
-      // Our linked list structure sizeof(ValueList)
-      // + Name  + '\0'
-      // + Value + '\0'
-      size_t size ;
-      #ifdef ESP8266
-        lgname = ESP8266_allocAlign(lgname+1);   // Align name buffer
-        lgvalue = ESP8266_allocAlign(lgvalue+1); // Align value buffer
-        // Align the whole structure
-        size = ESP8266_allocAlign( sizeof(ValueList) + lgname + lgvalue  )     ; 
-      #else
-        size = sizeof(ValueList) + lgname + 1 + lgvalue + 1  ;
-      #endif
-
       // Create new node with size to store strings
-      if ((newNode = (ValueList  *) malloc(size) ) == NULL) 
+      if ((newNode = (ValueList  *) aligned_malloc(sizeof(ValueList)) ) == NULL) 
         return ( (ValueList *) NULL );
+      memset(newNode, 0, sizeof(ValueList));
+	  
+      if ((newNode->name = (char  *) aligned_malloc(lgname+1) ) == NULL) 
+        return ( (ValueList *) NULL );
+      memset(newNode->name, 0, lgname+1);
 
-      // get our buffer Safe
-      memset(newNode, 0, size);
+      if ((newNode->value = (char  *) aligned_malloc(lgvalue+1) ) == NULL) 
+        return ( (ValueList *) NULL );
+      memset(newNode->value, 0, lgvalue+1);
       
       // Put the new node on the list
       me->next = newNode;
@@ -270,12 +267,12 @@ ValueList * TInfo::valueAdd(char * name, char * value, uint8_t checksum, uint8_t
       // First String located after last struct element
       // Second String located after the First + \0
       newNode->checksum = checksum;
-      newNode->name = (char *)  newNode + sizeof(ValueList);
-      newNode->value = (char *) newNode->name + lgname + 1;
 
       // Copy the string data
-      memcpy(newNode->name , name  , lgname );
-      memcpy(newNode->value, value , lgvalue );
+      strncpy(newNode->name, name , lgname );
+      newNode->name[lgname]='\0';
+      strncpy(newNode->value, value , lgvalue );
+      newNode->value[lgvalue]='\0';
 
       // So we just created this node but was it new
       // or was matter of text size ?
@@ -338,7 +335,9 @@ boolean TInfo::valueRemoveFlagged(uint8_t flags)
         parNode->next = me->next;
 
         // free up this node
-        free (me);
+		free(me->name);
+		free(me->value);
+        free(me);
 
         // Return to parent (that will now point on next node and not us)
         // and continue loop just in case we have sevral with same name
@@ -385,7 +384,9 @@ boolean TInfo::valueRemove(char * name)
         parNode->next = me->next;
 
         // free up this node
-        free (me);
+		free(me->name);
+		free(me->value);
+        free(me);
 
         // Return to parent (that will now point on next node and not us)
         // and continue loop just in case we have sevral with same name
@@ -427,6 +428,7 @@ char * TInfo::valueGet(char * name, char * value)
           // copy to dest buffer
           uint8_t lgvalue = strlen(me->value);
           strncpy(value, me->value , lgvalue );
+		  value[lgvalue]='\0';
           return ( value );
         }
       }
@@ -547,6 +549,8 @@ boolean TInfo::listDelete()
       me->next =  current->next;
 
       // Free the current
+	  free(current->name);
+	  free(current->value);
       free(current);
     }
 
@@ -587,6 +591,47 @@ unsigned char TInfo::calcChecksum(char *etiquette, char *valeur)
     }
   }
   return 0;
+}
+
+/* ======================================================================
+Function: checktoken
+Purpose : check the token type & value content according known table
+Input   : label name 
+          label value 
+Output  : true if ok, false if error
+====================================================================== */
+bool TInfo::checktoken(char *etiquette, char *valeur) 
+{
+  uint8_t i=0 ;
+
+  while(knownTokens[i].token != NULL)
+  {
+	if(strcmp(etiquette,knownTokens[i].token) == 0)
+	{
+		switch(strcmp(etiquette,knownTokens[i].type)
+		{
+		case TYPE_NUMBER:
+			int len=strlen(valeur);
+			for(int index=0;index<len;index++)
+			{
+				if(valeur[index] < '0' || valeur[index] > '9')
+				{
+					return false;
+				}
+			}
+			return true;
+			
+			break;
+			
+		case TYPE_STRING:
+			return true;
+			break;
+		}
+	}
+	i++;
+  };
+  
+  return false;
 }
 
 /* ======================================================================
@@ -636,12 +681,12 @@ Comments:
 ====================================================================== */
 ValueList * TInfo::checkLine(char * pline) 
 {
+  static char  buff[TINFO_BUFSIZE];
   char * p;
   char * ptok;
   char * pend;
   char * pvalue;
   char   checksum;
-  char  buff[TINFO_BUFSIZE];
   uint8_t flags  = TINFO_FLAGS_NONE;
   boolean err = true ;  // Assume  error
   int len ; // Group len
@@ -656,9 +701,11 @@ ValueList * TInfo::checkLine(char * pline)
   if ( len < 7 )
     return NULL;
 
+  memset(buff,0,TINFO_BUFSIZE);
   // Get our own working copy
-  strncpy( buff, _recv_buff, len+1);
-
+  strncpy( buff, _recv_buff, len);
+  buff[len]='\0';
+  
   p = &buff[0];
   ptok = p;       // for sure we start with token name
   pend = p + len; // max size
@@ -697,7 +744,13 @@ ValueList * TInfo::checkLine(char * pline)
         if(strlen(ptok) && strlen(pvalue)) {
           // Is checksum is OK
           if ( calcChecksum(ptok,pvalue) == checksum) {
-            // In case we need to do things on specific labels
+
+			if(checktoken(ptok,pvalue) == false)
+			{
+				return NULL;
+			}
+		  
+     		// In case we need to do things on specific labels
             customLabel(ptok, pvalue, &flags);
 
             // Add value to linked lists of values
