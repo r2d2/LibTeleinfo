@@ -45,6 +45,8 @@ extern "C" {
 #include "webclient.h"
 #include "config.h"
 
+// define if we run on a ESP01 (to disable unsupported LEDs in fact)
+#define ESP01 1
 
 #define DEBUG
 #define DEBUG_SERIAL	Serial1
@@ -93,8 +95,10 @@ extern "C" {
 
 // GPIO 1 TX on board blue led
 #ifdef BLU_LED_PIN
+#ifndef ESP01
 #define LedBluON()  {digitalWrite(BLU_LED_PIN, 0);}
 #define LedBluOFF() {digitalWrite(BLU_LED_PIN, 1);}
+#endif // ESP01
 #else
 #define LedBluON()  {}
 #define LedBluOFF() {}
