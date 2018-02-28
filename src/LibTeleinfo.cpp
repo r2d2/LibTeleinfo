@@ -287,7 +287,7 @@ ValueList * TInfo::valueAdd(char * name, char * value, uint8_t checksum, uint8_t
       TI_Debug('=');
       TI_Debug(value);
       TI_Debug(F("' '"));
-      TI_Debug((char) cheksum);
+      TI_Debug((char) checksum);
       TI_Debugln(F("'"));
 
       // return pointer on the new node
