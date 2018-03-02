@@ -8,4 +8,4 @@ Code has been reworked to validate electrical counter serial input based on know
 
 A simple schematics like the one proposed below is doing well the job.
 
-![ESP01 schematics](https://github.com/r2d2/LibTeleinfo/eagle_wifinfo_esp01/ESP01_schematics.png "ESP01 schematics")
+![ESP01 schematics](https://github.com/r2d2/LibTeleinfo/blob/master/eagle_wifinfo_esp01/ESP01_schematics.png "ESP01 schematics")
