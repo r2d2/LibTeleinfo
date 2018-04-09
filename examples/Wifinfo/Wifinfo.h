@@ -48,11 +48,9 @@ extern "C" {
 // define if we run on a ESP01 (to disable unsupported LEDs in fact)
 #define ESP01 1
 
-#ifndef ESP01 // ESP01 does have a spare debug serial. Disabling debug
 #define DEBUG
 #define DEBUG_SERIAL	Serial1
 #define DEBUG_SERIAL1
-#endif
 
 #define WIFINFO_VERSION "1.0.1"
 

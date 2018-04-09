@@ -744,7 +744,9 @@ void setup()
   // Note that TXD2 is not used teleinfo is receive only
   #ifdef DEBUG_SERIAL1
     Serial.begin(1200, SERIAL_7E1);
+  #ifndef ESP01
     Serial.swap();
+  #endif
   #endif
 
   // Init teleinfo
